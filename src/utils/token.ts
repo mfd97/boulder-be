@@ -10,7 +10,7 @@ export interface ITokenPayload {
   email: string;
 }
 
-export function generateToken(userId: Types.ObjectId, email: string): string {
+export function generateToken(userId: Types.ObjectId | string, email: string): string {
   return jwt.sign(
     { userId: userId.toString(), email } as ITokenPayload,
     JWT_SECRET,

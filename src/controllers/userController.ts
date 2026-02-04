@@ -72,15 +72,17 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    console.log("USER",user)
     if (!user) {
       res.status(401).json({ success: false, error: 'Invalid email or password.' });
       return;
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password)
+    console.log("isMatch", isMatch)
     if (!isMatch) {
-      res.status(401).json({ success: false, error: 'Invalid email or password.' });
+      res.status(401).json({ success: false, error: 'Invalid email or password password.' });
       return;
     }
 
