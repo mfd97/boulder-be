@@ -1,0 +1,323 @@
+---
+alwaysApply: true
+---
+# Project: [Boulder] — Backend
+
+<!-- 
+  ╔═══════════════════════════════════════════════════════════════╗
+  ║  SETUP INSTRUCTIONS                                           ║
+  ╠═══════════════════════════════════════════════════════════════╣
+  ║  1. Replace [APP_NAME] with your app name                     ║
+  ║  2. Replace [APP_DESCRIPTION] with a one-line description     ║
+  ║  3. Replace [DB_NAME] with your MongoDB database name         ║
+  ║  4. Add your domain models to the Domain Models section       ║
+  ║  5. Delete this instruction block when done                   ║
+  ╚═══════════════════════════════════════════════════════════════╝
+-->
+
+You are an expert Node.js/Express developer helping build the REST API for 
+[Boulder], [an ios mobile app to create quizzes using ai to evaluate topic mastery]
+
+## Tech Stack
+- Node.js with Express.js
+- TypeScript (strict mode)
+- MongoDB with Mongoose ODM
+- JWT for authentication (jsonwebtoken + bcrypt)
+- Express middleware for auth, validation, error handling
+
+## Database
+- MongoDB database name: [boulder]
+- Collections are automatically created by Mongoose (lowercase, plural)
+
+---
+
+## Project Structure
+
+src/
+├── controllers/        → Business logic, one file per resource
+├── models/             → Mongoose schemas and TypeScript interfaces
+├── routes/             → Express route definitions
+├── middleware/         → Auth, validation, error handling
+├── types/              → Shared TypeScript interfaces
+├── utils/              → Helper functions (token generation, etc.)
+└── config/             → Database connection, environment variables
+
+Root files:
+- server.ts             → App entry point, middleware setup, route mounting
+- .env                  → Environment variables (never commit this)
+- .env.example          → Template for environment variables
+
+---
+
+## Naming Conventions
+
+### Files
+For Controllers use camelCase, singular + Controller such as userController.ts
+For Models use PascalCase, singular such as User.ts
+For Routes use camelCase, plural as users.ts 
+For Middleware use camelCase, descriptive such as authenticate.ts 
+
+### Code
+For Functions use camelCase, verb-first such as getUsers, createProduct 
+For Interfaces use PascalCase, I prefix optional such as IUser or User 
+For Constants use UPPER_SNAKE_CASE such as JWT_SECRET, MAX_ITEMS 
+For Route paths use kebab-case, plural nouns such as /api/users, /api/order-items 
+
+### Database
+For Model names use PascalCase, singular such as User, Product, OrderItem 
+For Collection names use Mongoose auto-creates as lowercase plural such as users, products, orderitems
+For Field names use camelCase such as firstName, createdAt, isActive 
+
+---
+
+## API Response Format
+
+EVERY endpoint must return this consistent format:
+
+Success responses:
+- Include `success: true` and `data` field
+- Use appropriate HTTP status code (200, 201)
+
+Error responses:
+- Include `success: false` and `error` field with user-friendly message
+- Use appropriate HTTP status code (400, 401, 403, 404, 500)
+
+Never return raw Mongoose errors to the client. Always catch and transform them.
+
+---
+
+## HTTP Status Codes
+
+Use the correct status code for each situation, follow best practices for backend development
+
+---
+
+## Controller Guidelines
+
+Controllers handle the business logic for each route.
+
+### Structure
+1. Import the model and any required types
+2. Export individual async functions (not a class)
+3. Each function handles one action (get, create, update, delete)
+4. Always use try/catch for async operations
+5. Log errors with context before sending response
+6. Always use Request and Response and other types from Express
+
+### Function Pattern
+1. Extract parameters from req (params, body, query, user)
+2. Validate input if needed
+3. Perform database operation
+4. Return success response with data
+5. Catch errors, log them, return error response
+
+### Naming
+- getUsers, getUserById — fetch operations
+- createUser — create operations
+- updateUser — update operations
+- deleteUser — delete operations
+- Custom actions: verb + noun (addToCart, markAsComplete)
+
+---
+
+## Model Guidelines
+
+Models define the data structure and validation.
+
+### Structure
+1. Define Mongoose schema with validation
+2. Enable timestamps (createdAt, updatedAt)
+3. Export both model
+
+### Timestamps
+Always enable `timestamps: true` in schema options. This automatically adds:
+- createdAt: Date when document was created
+- updatedAt: Date when document was last modified
+
+---
+
+## Route Guidelines
+
+Routes map HTTP methods and paths to controller functions.
+
+### Structure
+1. Import Router from express
+2. Import controller functions
+3. Import middleware (authenticate, etc.)
+4. Define routes with appropriate middleware
+5. Export the router
+
+### Path Conventions
+- Use plural nouns: /users, /products, /orders
+- Use kebab-case for multi-word: /order-items, /user-profiles
+- Nest related resources: /users/:userId/orders
+- Keep nesting shallow (max 2 levels)
+
+### RESTful Patterns
+- Follow RESTful API patterns in naming convetions and requests
+
+### Middleware Order
+Apply middleware in this order:
+1. authenticate — verify JWT token
+2. authorize — check user permissions (if needed)
+3. validate — validate request body (if needed)
+4. controller — handle the request
+
+---
+
+## Authentication Guidelines
+
+### Token Strategy
+- Use JWT (JSON Web Tokens) for stateless authentication
+- Store JWT secret in environment variables
+- Set reasonable expiration (7 days for regular, shorter for sensitive apps)
+- Include user ID in token payload (minimum)
+- Never include sensitive data (password) in token
+
+### Password Handling
+- NEVER store plain text passwords
+- Use bcrypt for hashing (cost factor 10-12)
+- Compare passwords using bcrypt.compare()
+- Enforce minimum password requirements (length, complexity)
+
+### Authenticate Middleware
+The authenticate middleware should:
+1. Extract token from Authorization header (Bearer scheme)
+2. Verify token using JWT secret
+3. Decode user ID from token
+4. Optionally fetch user from database
+5. Attach user to request object (req.user)
+6. Call next() if valid, return 401 if invalid
+
+### Protected vs Public Routes
+- Public routes: No middleware needed (register, login, public listings)
+- Protected routes: Apply authenticate middleware
+- Owner-only routes: Apply authenticate + check ownership in controller
+
+### Request User Type
+Extend Express Request type to include user:
+- Create a custom type that adds `user` property to Request
+- User should have at least `_id` field
+- Use this type in protected controller functions
+
+---
+
+## Error Handling Guidelines
+
+### Controller Error Handling
+- Wrap ALL async operations in try/catch
+- Log the full error server-side (for debugging)
+- Return clean, user-friendly message to client
+- Include relevant context in logs (function name, user ID, resource ID)
+
+### Mongoose Error Handling
+Handle these Mongoose-specific errors:
+- ValidationError: Return 400 with field-specific messages
+- CastError (invalid ObjectId): Return 400 with "Invalid ID" message
+- Duplicate key (code 11000): Return 409 with "Already exists" message
+
+### Global Error Handler
+Consider adding a global error handling middleware that:
+- Catches any unhandled errors
+- Logs the full error with stack trace
+- Returns a generic 500 response
+- Prevents app from crashing
+
+---
+
+## Validation Guidelines
+
+### Where to Validate
+1. Mongoose schema — last line of defense, database-level
+2. Controller — business logic validation
+3. Middleware — reusable validation (optional, for complex cases)
+
+### What to Validate
+- Required fields are present
+- Fields are correct type
+- Strings meet length requirements
+- Numbers are within acceptable range
+- Enum values are valid options
+- References (ObjectIds) are valid format
+- Email format is valid
+- Custom business rules (e.g., end date after start date)
+
+### Validation Response
+When validation fails:
+- Return 400 status
+- Include specific error message about what's wrong
+- For multiple errors, return all of them (not just the first)
+
+---
+
+## Security Guidelines
+
+### Environment Variables
+Never commit sensitive data. Use .env for:
+- Database connection string
+- JWT secret
+- API keys
+- Port number
+
+### Input Sanitization
+- Mongoose helps prevent NoSQL injection by default
+- Still validate and sanitize user input
+- Be careful with `$where` queries and user-provided query operators
+
+---
+
+## Logging Guidelines
+
+### What to Log
+- Errors with full stack trace
+- Failed authentication attempts
+- Important business events (order placed, user registered)
+- Slow queries or operations
+
+### What NOT to Log
+- Passwords (even hashed ones)
+- Full tokens
+- Sensitive personal data
+
+### Log Format
+Include context in every log:
+- Timestamp (automatic with most loggers)
+- Function/operation name
+- Relevant IDs (user, resource)
+- Error message and stack (for errors)
+
+---
+
+## Folder Organization
+
+### By Feature vs By Type
+This template uses "by type" organization:
+- All controllers in /controllers
+- All models in /models
+- All routes in /routes
+
+Alternative "by feature" for larger apps:
+- /features/users (controller, model, routes together)
+- /features/products
+- /features/orders
+
+### When to Split Files
+- One model per file (always)
+- One controller per resource (usually)
+- Routes can be one file per resource or grouped
+- Middleware can be one file or split by purpose
+
+---
+
+## When Generating Code
+
+1. Follow the folder structure — put files in the right places
+2. Always use TypeScript with proper types
+3. Include try/catch in all async controller functions
+4. Use the standard response format (success, data, error)
+5. Add appropriate HTTP status codes
+6. Log errors with context before returning response
+7. Include timestamps in all schemas
+8. Add indexes for frequently queried fields
+9. Keep controllers focused — one action per function
+10. Make routes RESTful and consistent
