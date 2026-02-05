@@ -2,7 +2,15 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL = 'tngtech/deepseek-r1t-chimera:free';
+
+// Fallback models in order of preference (speed & reliability)
+const FALLBACK_MODELS = [
+    'google/gemma-2-9b-it:free',
+    'meta-llama/llama-3.2-3b-instruct:free',
+    'mistralai/mistral-7b-instruct:free',
+    'qwen/qwen-2-7b-instruct:free',
+    'tngtech/deepseek-r1t-chimera:free',
+];
 
 export interface GeneratedQuestion {
     question: string;
@@ -71,6 +79,46 @@ function validateAndNormalizeQuestions(raw: unknown): GeneratedQuestion[] {
     return questions;
 }
 
+// Try a single model and return result or throw error
+async function tryModel(
+    model: string,
+    prompt: string,
+    apiKey: string
+): Promise<{ content: string }> {
+    console.log(`[OpenRouter] Trying model: ${model}`);
+
+    const response = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 2048,
+            response_format: { type: 'json_object' },
+        }),
+    });
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Model ${model} failed (${response.status}): ${text}`);
+    }
+
+    const data = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+    };
+
+    const content = data.choices?.[0]?.message?.content;
+    if (typeof content !== 'string') {
+        throw new Error(`Model ${model} returned invalid response: missing content`);
+    }
+
+    console.log(`[OpenRouter] Success with model: ${model}`);
+    return { content };
+}
+
 export async function generateQuizQuestions(
     topic: string,
     difficulty: string
@@ -81,37 +129,30 @@ export async function generateQuizQuestions(
     }
 
     const prompt = buildPrompt(topic, difficulty);
+    console.log('[OpenRouter] Generated prompt for topic:', topic);
 
-    console.log(prompt);
+    // Get models to try - use env override or fallback list
+    const envModel = process.env.OPENROUTER_MODEL;
+    const modelsToTry = envModel ? [envModel, ...FALLBACK_MODELS] : FALLBACK_MODELS;
 
-    const response = await fetch(OPENROUTER_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL,
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 2048,
-            response_format: { type: 'json_object' },
-        }),
-    });
+    let lastError: Error | null = null;
+    let content: string | null = null;
 
-    console.log(response);
-
-    if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`OpenRouter API error (${response.status}): ${text}`);
+    // Try each model until one succeeds
+    for (const model of modelsToTry) {
+        try {
+            const result = await tryModel(model, prompt, apiKey);
+            content = result.content;
+            break; // Success - exit loop
+        } catch (err) {
+            lastError = err instanceof Error ? err : new Error(String(err));
+            console.warn(`[OpenRouter] ${lastError.message}`);
+            // Continue to next model
+        }
     }
 
-    const data = (await response.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-    };
-
-    const content = data.choices?.[0]?.message?.content;
-    if (typeof content !== 'string') {
-        throw new Error('Invalid response from question generator: missing content');
+    if (!content) {
+        throw new Error(`All models failed. Last error: ${lastError?.message}`);
     }
 
     let parsed: unknown;

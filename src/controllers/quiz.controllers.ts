@@ -5,6 +5,7 @@ import { generateQuizQuestions } from "../services/openrouter";
 const VALID_DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
 
 export const createQuiz = async (req: Request, res: Response) => {
+    console.log('[createQuiz] Request received:', req.body);
     const { topic, difficulty } = req.body;
 
     if (!topic || typeof topic !== 'string' || !topic.trim()) {
@@ -36,6 +37,9 @@ export const createQuiz = async (req: Request, res: Response) => {
         res.status(201).json({ success: true, data: quiz });
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to generate quiz';
+        console.error('[createQuiz] Error:', message);
+        console.error('[createQuiz] Full error:', err);
+
         if (message.includes('OPENROUTER_API_KEY')) {
             res.status(503).json({ success: false, message: 'Quiz generator is not configured' });
             return;
