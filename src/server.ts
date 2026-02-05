@@ -1,53 +1,50 @@
-import 'dotenv/config';
+// backend/src/server.ts
 import express from 'express';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import connectDB from './config/database';
-import { errorHandler } from './middleware/errorHandler';
+import morgan from "morgan"
+
+// Import routes
 import authRoutes from './routes/auth';
-import usersRoutes from './routes/users';
+import userRoutes from './routes/users';
+// import analyticsRoutes from './routes/analytics'; // Removed: module not found
+// ... باقي الـ routes
+
+dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) || 4000 : 4000;
+const PORT = process.env.PORT || 8000;
 
+// Middleware
 app.use(cors());
+app.use(morgan("dev"))
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.use('/api/auth', authRoutes);
-app.use('/api/users', usersRoutes);
+// Database connection
+connectDB();
 
-app.get('/api/health', (_req, res) => {
-  res.status(200).json({ success: true, data: { status: 'ok' } });
+// Routes
+app.use('/api/auth', authRoutes);           // 🔐 Auth routes
+app.use('/api/users', userRoutes);
+// app.use('/api/analytics', analyticsRoutes); // Removed: analyticsRoutes not defined
+// ... باقي الـ routes
+
+// Health check
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Server is running' });
 });
 
-app.use((_req, res) => {
-  res.status(404).json({ success: false, error: 'Not found.' });
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Route not found',
+  });
 });
-app.use(errorHandler);
 
-const FALLBACK_PORT = 4000;
-
-function tryListen(port: number): void {
-  const server = app.listen(port, () => {
-    console.log(`[server] Boulder API running on http://localhost:${port}`);
-  });
-  server.on('error', (err: NodeJS.ErrnoException) => {
-    if (err.code === 'EADDRINUSE' && port !== FALLBACK_PORT) {
-      server.close();
-      console.warn(`[server] Port ${port} in use, trying ${FALLBACK_PORT}...`);
-      tryListen(FALLBACK_PORT);
-    } else {
-      console.error('[server] Failed to start:', err);
-      process.exit(1);
-    }
-  });
-}
-
-async function start(): Promise<void> {
-  await connectDB();
-  tryListen(PORT);
-}
-
-start().catch((err) => {
-  console.error('[server] Failed to start:', err);
-  process.exit(1);
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
