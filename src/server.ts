@@ -5,6 +5,7 @@ import connectDB from './config/database';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
+import quizRoutes from './routes/quiz.routes';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) || 4000 : 4000;
@@ -14,6 +15,7 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/quiz', quizRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ success: true, data: { status: 'ok' } });
