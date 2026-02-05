@@ -18,13 +18,13 @@ export async function register(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    if (password.length < 8) {
-      res.status(400).json({
-        success: false,
-        error: 'Password must be at least 8 characters.',
-      });
-      return;
-    }
+    // if (password.length < 8) {
+    //   res.status(400).json({
+    //     success: false,
+    //     error: 'Password must be at least 8 characters.',
+    //   });
+    //   return;
+    // }
 
     const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
     if (existingUser) {
