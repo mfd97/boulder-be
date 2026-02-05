@@ -125,3 +125,12 @@ export async function getMe(req: Request, res: Response): Promise<void> {
     res.status(500).json({ success: false, error: 'Failed to fetch profile.' });
   }
 }
+
+export async function logout(req: Request, res: Response): Promise<void> {
+  // Stateless JWT logout: client deletes token.
+  res.status(200).json({
+    success: true,
+    data: { message: 'Logged out.' },
+  });
+}
+
