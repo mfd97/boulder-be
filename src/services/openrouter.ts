@@ -36,12 +36,27 @@ function loadPromptTemplate(): string {
     return fs.readFileSync(promptPath, 'utf-8');
 }
 
-function buildPrompt(topic: string, difficulty: string): string {
+function buildPrompt(topic: string, difficulty: string, excludeQuestions?: string[]): string {
     const template = loadPromptTemplate();
     const mappedDifficulty = DIFFICULTY_MAP[difficulty] ?? difficulty;
-    return template
+    let prompt = template
         .replace('<TOPIC FROM BODY></TOPIC>', topic)
         .replace('<DIFFICULTY FROM BODY></DIFFICULTY>', mappedDifficulty);
+    
+    // Add exclusion list if there are previous questions
+    if (excludeQuestions && excludeQuestions.length > 0) {
+        const exclusionSection = `
+
+IMPORTANT - AVOID THESE PREVIOUSLY ASKED QUESTIONS:
+The following questions have already been asked to this user. You MUST generate completely different questions that do not overlap with these:
+${excludeQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
+
+Generate 5 NEW and UNIQUE questions that are different from the ones listed above.`;
+        
+        prompt += exclusionSection;
+    }
+    
+    return prompt;
 }
 
 function isGeneratedQuestion(obj: unknown): obj is GeneratedQuestion {
@@ -121,15 +136,19 @@ async function tryModel(
 
 export async function generateQuizQuestions(
     topic: string,
-    difficulty: string
+    difficulty: string,
+    excludeQuestions?: string[]
 ): Promise<GenerateQuizQuestionsResult> {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey?.trim()) {
         throw new Error('OPENROUTER_API_KEY is not set');
     }
 
-    const prompt = buildPrompt(topic, difficulty);
+    const prompt = buildPrompt(topic, difficulty, excludeQuestions);
     console.log('[OpenRouter] Generated prompt for topic:', topic);
+    if (excludeQuestions && excludeQuestions.length > 0) {
+        console.log(`[OpenRouter] Excluding ${excludeQuestions.length} previous questions`);
+    }
 
     // Get models to try - use env override or fallback list
     const envModel = process.env.OPENROUTER_MODEL;

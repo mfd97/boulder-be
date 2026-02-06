@@ -39,6 +39,31 @@ const startNewQuizSchema = new Schema({
         type: [questionSchema],
         default: [],
     },
+    // Quiz result fields (populated when quiz is completed)
+    isCompleted: {
+        type: Boolean,
+        default: false,
+    },
+    answers: {
+        type: Map,
+        of: String,
+        default: {},
+    },
+    correctCount: {
+        type: Number,
+        default: 0,
+    },
+    totalScore: {
+        type: Number,
+        default: 0,
+    },
+    earnedScore: {
+        type: Number,
+        default: 0,
+    },
+    completedAt: {
+        type: Date,
+    },
     createdAt: {
         type: Date,
         default: Date.now,

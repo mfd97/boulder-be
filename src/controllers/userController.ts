@@ -123,3 +123,17 @@ export async function getMe(req: Request, res: Response): Promise<void> {
     res.status(500).json({ success: false, error: 'Failed to fetch profile.' });
   }
 }
+
+export async function getAllUsers(req: Request, res: Response): Promise<void> {
+  try {
+    const users = await User.find().select('-password');
+
+    res.status(200).json({
+      success: true,
+      data: { users },
+    });
+  } catch (error) {
+    console.error('[userController.getAllUsers]', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch users.' });
+  }
+}
