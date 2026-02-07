@@ -39,23 +39,28 @@ function loadPromptTemplate(): string {
 function buildPrompt(topic: string, difficulty: string, excludeQuestions?: string[]): string {
     const template = loadPromptTemplate();
     const mappedDifficulty = DIFFICULTY_MAP[difficulty] ?? difficulty;
-    let prompt = template
+
+    // If there are exclusions, add them at the START of the prompt for better adherence
+    let exclusionPrefix = '';
+    if (excludeQuestions && excludeQuestions.length > 0) {
+        exclusionPrefix = `CRITICAL INSTRUCTION - YOU MUST AVOID THESE QUESTIONS:
+The user has already been asked the following questions. DO NOT generate any questions that are similar to these:
+
+=== PREVIOUSLY ASKED QUESTIONS (DO NOT REPEAT) ===
+${excludeQuestions.map((q, i) => `${i + 1}. "${q}"`).join('\n')}
+=== END OF EXCLUSION LIST ===
+
+You MUST create COMPLETELY NEW questions about "${topic}" that are DIFFERENT from the above. Ask about different concepts, use different scenarios, or test different aspects of the topic.
+
+---
+
+`;
+    }
+
+    let prompt = exclusionPrefix + template
         .replace('<TOPIC FROM BODY></TOPIC>', topic)
         .replace('<DIFFICULTY FROM BODY></DIFFICULTY>', mappedDifficulty);
-    
-    // Add exclusion list if there are previous questions
-    if (excludeQuestions && excludeQuestions.length > 0) {
-        const exclusionSection = `
 
-IMPORTANT - AVOID THESE PREVIOUSLY ASKED QUESTIONS:
-The following questions have already been asked to this user. You MUST generate completely different questions that do not overlap with these:
-${excludeQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
-
-Generate 5 NEW and UNIQUE questions that are different from the ones listed above.`;
-        
-        prompt += exclusionSection;
-    }
-    
     return prompt;
 }
 
@@ -92,6 +97,59 @@ function validateAndNormalizeQuestions(raw: unknown): GeneratedQuestion[] {
         });
     }
     return questions;
+}
+
+// Normalize a question string for comparison (lowercase, remove punctuation, trim whitespace)
+function normalizeForComparison(text: string): string {
+    return text
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '') // Remove punctuation
+        .replace(/\s+/g, ' ')    // Normalize whitespace
+        .trim();
+}
+
+// Calculate similarity between two strings (simple word overlap)
+function calculateSimilarity(str1: string, str2: string): number {
+    const norm1 = normalizeForComparison(str1);
+    const norm2 = normalizeForComparison(str2);
+
+    // Exact match
+    if (norm1 === norm2) return 1.0;
+
+    // Word-based overlap
+    const words1 = new Set(norm1.split(' '));
+    const words2 = new Set(norm2.split(' '));
+
+    let overlap = 0;
+    words1.forEach(word => {
+        if (words2.has(word)) overlap++;
+    });
+
+    // Jaccard similarity
+    const union = new Set([...words1, ...words2]).size;
+    return union > 0 ? overlap / union : 0;
+}
+
+// Filter out questions that are too similar to excluded ones
+function filterDuplicateQuestions(
+    questions: GeneratedQuestion[],
+    excludeQuestions: string[],
+    similarityThreshold: number = 0.7
+): GeneratedQuestion[] {
+    const normalizedExclusions = excludeQuestions.map(q => normalizeForComparison(q));
+
+    return questions.filter(q => {
+        const normalizedQ = normalizeForComparison(q.question);
+
+        for (const excluded of normalizedExclusions) {
+            const similarity = calculateSimilarity(normalizedQ, excluded);
+            if (similarity >= similarityThreshold) {
+                console.log(`[OpenRouter] Filtering duplicate question (${Math.round(similarity * 100)}% similar): "${q.question.substring(0, 50)}..."`);
+                return false;
+            }
+        }
+        return true;
+    });
 }
 
 // Try a single model and return result or throw error
@@ -182,9 +240,24 @@ export async function generateQuizQuestions(
     }
 
     const obj = parsed as Record<string, unknown>;
-    const questions = validateAndNormalizeQuestions(obj.questions);
+    let questions = validateAndNormalizeQuestions(obj.questions);
     const resultTopic = typeof obj.topic === 'string' ? obj.topic : topic;
     const resultDifficulty = typeof obj.difficulty === 'string' ? obj.difficulty : difficulty;
+
+    // Post-generation filter: remove any questions that are too similar to excluded ones
+    if (excludeQuestions && excludeQuestions.length > 0) {
+        const originalCount = questions.length;
+        questions = filterDuplicateQuestions(questions, excludeQuestions);
+
+        if (questions.length < originalCount) {
+            console.log(`[OpenRouter] Filtered ${originalCount - questions.length} duplicate questions, ${questions.length} remaining`);
+        }
+
+        // If too many questions were filtered, log a warning
+        if (questions.length < 3) {
+            console.warn(`[OpenRouter] Warning: Only ${questions.length} unique questions generated. Consider expanding the topic or reducing exclusions.`);
+        }
+    }
 
     return {
         topic: resultTopic,
