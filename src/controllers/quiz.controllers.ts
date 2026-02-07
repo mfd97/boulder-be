@@ -6,8 +6,14 @@ const VALID_DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
 
 export const getQuizHistory = async (req: Request, res: Response) => {
     try {
-        // Only show completed quizzes in history
-        const quizzes = await StartNewQuiz.find({ isCompleted: true })
+        const userId = req.user?._id;
+        if (!userId) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+
+        // Only show completed quizzes in history for this user
+        const quizzes = await StartNewQuiz.find({ isCompleted: true, userId })
             .sort({ completedAt: -1 }) // Most recent first
             .select('topic difficulty createdAt completedAt questions correctCount totalScore earnedScore');
 
@@ -36,6 +42,12 @@ export const getQuizHistory = async (req: Request, res: Response) => {
 
 export const submitQuizResult = async (req: Request, res: Response) => {
     const { quizId, answers, correctCount, totalScore, earnedScore } = req.body;
+    const userId = req.user?._id;
+
+    if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+    }
 
     if (!quizId) {
         res.status(400).json({ success: false, message: 'Quiz ID is required' });
@@ -43,8 +55,9 @@ export const submitQuizResult = async (req: Request, res: Response) => {
     }
 
     try {
-        const quiz = await StartNewQuiz.findByIdAndUpdate(
-            quizId,
+        // Only update if quiz belongs to the user
+        const quiz = await StartNewQuiz.findOneAndUpdate(
+            { _id: quizId, userId },
             {
                 isCompleted: true,
                 answers: answers || {},
@@ -70,9 +83,16 @@ export const submitQuizResult = async (req: Request, res: Response) => {
 
 export const getQuizById = async (req: Request, res: Response) => {
     const { id } = req.params;
+    const userId = req.user?._id;
+
+    if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+    }
 
     try {
-        const quiz = await StartNewQuiz.findById(id);
+        // Only return quiz if it belongs to the user
+        const quiz = await StartNewQuiz.findOne({ _id: id, userId });
 
         if (!quiz) {
             res.status(404).json({ success: false, message: 'Quiz not found' });
@@ -88,6 +108,12 @@ export const getQuizById = async (req: Request, res: Response) => {
 
 export const createQuiz = async (req: Request, res: Response) => {
     const { topic, difficulty } = req.body;
+    const userId = req.user?._id;
+
+    if (!userId) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+    }
 
     if (!topic || typeof topic !== 'string' || !topic.trim()) {
         res.status(400).json({ success: false, message: 'Topic is required' });
@@ -102,8 +128,9 @@ export const createQuiz = async (req: Request, res: Response) => {
     }
 
     try {
-        // Fetch previous questions for this topic to avoid repetition (only completed quizzes)
+        // Fetch previous questions for this topic to avoid repetition (only completed quizzes for this user)
         const previousQuizzes = await StartNewQuiz.find({
+            userId,
             topic: { $regex: new RegExp(`^${topic.trim()}$`, 'i') },
             isCompleted: true
         }).select('questions');
@@ -118,12 +145,13 @@ export const createQuiz = async (req: Request, res: Response) => {
             });
         });
 
-        console.log(`[createQuiz] Found ${excludeQuestions.length} previous questions for topic: ${topic}`);
+        console.log(`[createQuiz] Found ${excludeQuestions.length} previous questions for topic: ${topic} (user: ${userId})`);
 
         // Generate new questions, passing the exclusion list
         const { questions } = await generateQuizQuestions(topic.trim(), difficulty, excludeQuestions);
 
         const quiz = await StartNewQuiz.create({
+            userId,
             topic: topic.trim(),
             difficulty,
             questions: questions.map((q) => ({
@@ -170,7 +198,13 @@ function getTodayDateString(): string {
 
 export const getStreak = async (req: Request, res: Response) => {
     try {
-        const completedQuizzes = await StartNewQuiz.find({ isCompleted: true })
+        const userId = req.user?._id;
+        if (!userId) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+
+        const completedQuizzes = await StartNewQuiz.find({ isCompleted: true, userId })
             .sort({ completedAt: -1 })
             .select('completedAt correctCount questions');
 
@@ -265,7 +299,13 @@ export const getStreak = async (req: Request, res: Response) => {
 
 export const getMastery = async (req: Request, res: Response) => {
     try {
-        const completedQuizzes = await StartNewQuiz.find({ isCompleted: true })
+        const userId = req.user?._id;
+        if (!userId) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+
+        const completedQuizzes = await StartNewQuiz.find({ isCompleted: true, userId })
             .select('topic difficulty correctCount questions');
 
         if (completedQuizzes.length === 0) {
@@ -327,7 +367,13 @@ export const getMastery = async (req: Request, res: Response) => {
 
 export const getProfileStats = async (req: Request, res: Response) => {
     try {
-        const completedQuizzes = await StartNewQuiz.find({ isCompleted: true })
+        const userId = req.user?._id;
+        if (!userId) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+
+        const completedQuizzes = await StartNewQuiz.find({ isCompleted: true, userId })
             .select('topic correctCount questions completedAt');
 
         const totalCompletions = completedQuizzes.length;

@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model, Types } from 'mongoose';
 
 const questionSchema = new Schema({
     question: {
@@ -26,6 +26,12 @@ const questionSchema = new Schema({
 }, { _id: true });
 
 const startNewQuizSchema = new Schema({
+    userId: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+        index: true,
+    },
     topic: {
         type: String,
         required: true,
