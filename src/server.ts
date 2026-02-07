@@ -10,8 +10,8 @@ import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
 import quizRoutes from './routes/quiz.routes';
 import friendsRoutes from './routes/friends.routes';
-import gameRoutes from './routes/game.routes';
-import { setupGameHandlers } from './sockets/gameHandlers';
+import gameRoutes from '@/routes/game.routes';
+import { setupGameHandlers } from '@/sockets/gameHandlers';
 
 const app = express();
 const httpServer = createServer(app);
