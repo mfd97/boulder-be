@@ -6,6 +6,7 @@ import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
 import quizRoutes from './routes/quiz.routes';
+import friendsRoutes from './routes/friends.routes';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) || 4000 : 4000;
@@ -17,6 +18,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/quiz', quizRoutes);
+app.use('/api/friends', friendsRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ success: true, data: { status: 'ok' } });
