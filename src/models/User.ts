@@ -5,6 +5,7 @@ export interface IUser {
   fullName: string;
   email: string;
   password: string;
+  profilePicture?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +32,10 @@ const userSchema = new Schema<IUser>(
       required: [true, 'Password is required'],
       minlength: [8, 'Password must be at least 8 characters'],
       select: false,
+    },
+    profilePicture: {
+      type: String,
+      default: null,
     },
   },
   {
