@@ -1,4 +1,5 @@
-import mongoose, { Schema, Model } from 'mongoose';
+import bcrypt from 'bcrypt';
+import mongoose, { Model, Schema } from 'mongoose';
 
 export interface IUser {
   _id: mongoose.Types.ObjectId;
@@ -10,7 +11,9 @@ export interface IUser {
   updatedAt: Date;
 }
 
-const userSchema = new Schema<IUser>(
+
+
+const userSchema = new Schema(
   {
     fullName: {
       type: String,
@@ -35,6 +38,7 @@ const userSchema = new Schema<IUser>(
     },
     profilePicture: {
       type: String,
+
       default: null,
     },
   },
@@ -43,5 +47,5 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-const User: Model<IUser> = mongoose.models.User ?? mongoose.model<IUser>('User', userSchema);
+const User =  mongoose.model('User', userSchema);
 export default User;

@@ -1,11 +1,15 @@
-import 'dotenv/config';
+// backend/src/server.ts
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+
 import jwt from 'jsonwebtoken';
+
 import connectDB from './config/database';
-import { errorHandler } from './middleware/errorHandler';
+import morgan from "morgan"
+
+// Import routes
 import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
 import quizRoutes from './routes/quiz.routes';
@@ -54,16 +58,17 @@ app.use('/api/quiz', quizRoutes);
 app.use('/api/friends', friendsRoutes);
 app.use('/api/game', gameRoutes);
 
-app.get('/api/health', (_req, res) => {
-  res.status(200).json({ success: true, data: { status: 'ok' } });
+// Routes
+app.use('/api/auth', authRoutes);           // 🔐 Auth routes
+app.use('/api/users', userRoutes);
+// app.use('/api/analytics', analyticsRoutes); // Removed: analyticsRoutes not defined
+// ... باقي الـ routes
+
+// Health check
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Server is running' });
 });
 
-app.use((_req, res) => {
-  res.status(404).json({ success: false, error: 'Not found.' });
-});
-app.use(errorHandler);
-
-const FALLBACK_PORT = 4000;
 
 function tryListen(port: number): void {
   httpServer.listen(port, () => {
@@ -90,4 +95,10 @@ async function start(): Promise<void> {
 start().catch((err) => {
   console.error('[server] Failed to start:', err);
   process.exit(1);
+
 });
+
+// Start server
+// app.listen(PORT, () => {
+//   console.log(`🚀 Server running on http://localhost:${PORT}`);
+// });

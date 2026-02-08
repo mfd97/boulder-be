@@ -18,13 +18,13 @@ export async function register(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    if (password.length < 8) {
-      res.status(400).json({
-        success: false,
-        error: 'Password must be at least 8 characters.',
-      });
-      return;
-    }
+    // if (password.length < 8) {
+    //   res.status(400).json({
+    //     success: false,
+    //     error: 'Password must be at least 8 characters.',
+    //   });
+    //   return;
+    // }
 
     const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
     if (existingUser) {
@@ -72,15 +72,17 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    console.log("USER",user)
     if (!user) {
       res.status(401).json({ success: false, error: 'Invalid email or password.' });
       return;
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password)
+    console.log("isMatch", isMatch)
     if (!isMatch) {
-      res.status(401).json({ success: false, error: 'Invalid email or password.' });
+      res.status(401).json({ success: false, error: 'Invalid email or password password.' });
       return;
     }
 
@@ -186,3 +188,4 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
     res.status(500).json({ success: false, error: 'Failed to update profile.' });
   }
 }
+
