@@ -6,9 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "nodemon src/server.ts",
-
     "dev": "nodemon src/server.ts",
-
     "typecheck": "tsc --noEmit"
   },
   "engines": {
@@ -22,8 +20,6 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.3.2",
     "socket.io": "^4.8.3"
-    "morgan": "^1.10.1"
-
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",

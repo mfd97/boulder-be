@@ -7,7 +7,7 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 
 import connectDB from './config/database';
-import morgan from "morgan"
+
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -60,7 +60,7 @@ app.use('/api/game', gameRoutes);
 
 // Routes
 app.use('/api/auth', authRoutes);           // 🔐 Auth routes
-app.use('/api/users', userRoutes);
+app.use('/api/users', usersRoutes);
 // app.use('/api/analytics', analyticsRoutes); // Removed: analyticsRoutes not defined
 // ... باقي الـ routes
 
@@ -76,10 +76,10 @@ function tryListen(port: number): void {
     console.log(`[socket.io] WebSocket server ready`);
   });
   httpServer.on('error', (err: NodeJS.ErrnoException) => {
-    if (err.code === 'EADDRINUSE' && port !== FALLBACK_PORT) {
+    if (err.code === 'EADDRINUSE' && port !== PORT) {
       httpServer.close();
-      console.warn(`[server] Port ${port} in use, trying ${FALLBACK_PORT}...`);
-      tryListen(FALLBACK_PORT);
+      console.warn(`[server] Port ${port} in use, trying ${PORT}...`);
+      tryListen(PORT);
     } else {
       console.error('[server] Failed to start:', err);
       process.exit(1);
