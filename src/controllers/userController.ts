@@ -126,11 +126,66 @@ export async function getMe(req: Request, res: Response): Promise<void> {
   }
 }
 
-export async function logout(req: Request, res: Response): Promise<void> {
-  // Stateless JWT logout: client deletes token.
-  res.status(200).json({
-    success: true,
-    data: { message: 'Logged out.' },
-  });
+export async function getAllUsers(req: Request, res: Response): Promise<void> {
+  try {
+    const users = await User.find().select('-password');
+
+    res.status(200).json({
+      success: true,
+      data: { users },
+    });
+  } catch (error) {
+    console.error('[userController.getAllUsers]', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch users.' });
+  }
+}
+
+export async function updateProfile(req: Request, res: Response): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Not authenticated.' });
+      return;
+    }
+
+    const { fullName, profilePicture } = req.body;
+
+    const updateData: { fullName?: string; profilePicture?: string } = {};
+
+    if (fullName !== undefined) {
+      if (typeof fullName !== 'string' || fullName.trim().length < 2) {
+        res.status(400).json({ success: false, error: 'Full name must be at least 2 characters.' });
+        return;
+      }
+      updateData.fullName = fullName.trim();
+    }
+
+    if (profilePicture !== undefined) {
+      updateData.profilePicture = profilePicture;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      res.status(400).json({ success: false, error: 'No valid fields to update.' });
+      return;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found.' });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { user },
+    });
+  } catch (error) {
+    console.error('[userController.updateProfile]', error);
+    res.status(500).json({ success: false, error: 'Failed to update profile.' });
+  }
 }
 

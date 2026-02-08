@@ -1,6 +1,16 @@
 import bcrypt from 'bcrypt';
 import mongoose, { Model, Schema } from 'mongoose';
 
+export interface IUser {
+  _id: mongoose.Types.ObjectId;
+  fullName: string;
+  email: string;
+  password: string;
+  profilePicture?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 
 
 const userSchema = new Schema(
@@ -26,13 +36,9 @@ const userSchema = new Schema(
       minlength: [8, 'Password must be at least 8 characters'],
       select: false,
     },
-    currentStreak: {
-      type: Number,
-      default: 0,
-      min: [0, 'Current streak cannot be negative'],
-    },
-    lastQuizDate: {
-      type: Date,
+    profilePicture: {
+      type: String,
+
       default: null,
     },
   },
