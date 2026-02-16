@@ -41,17 +41,17 @@ function buildPrompt(topic: string, difficulty: string, excludeQuestions?: strin
     const template = loadPromptTemplate();
     const mappedDifficulty = DIFFICULTY_MAP[difficulty] ?? difficulty;
 
-    // If there are exclusions, add them at the START of the prompt for better adherence
+    // If there are exclusions, add them at the START of the prompt (limit to last 10 so the model isn't overwhelmed)
     let exclusionPrefix = '';
     if (excludeQuestions && excludeQuestions.length > 0) {
-        exclusionPrefix = `CRITICAL INSTRUCTION - YOU MUST AVOID THESE QUESTIONS:
-The user has already been asked the following questions. DO NOT generate any questions that are similar to these:
+        const recentExclusions = excludeQuestions.slice(-10);
+        exclusionPrefix = `CRITICAL: The following questions have ALREADY been asked. Your output must contain ZERO questions that are the same or rephrased versions of these. Every new question must be on a different concept, subtopic, or angle (e.g. different definition, scenario, or application). Rephrasing or copying will cause rejection.
 
-=== PREVIOUSLY ASKED QUESTIONS (DO NOT REPEAT) ===
-${excludeQuestions.map((q, i) => `${i + 1}. "${q}"`).join('\n')}
+=== PREVIOUSLY ASKED QUESTIONS (DO NOT REPEAT IN ANY FORM) ===
+${recentExclusions.map((q, i) => `${i + 1}. "${q}"`).join('\n')}
 === END OF EXCLUSION LIST ===
 
-You MUST create COMPLETELY NEW questions about "${topic}" that are DIFFERENT from the above. Ask about different concepts, use different scenarios, or test different aspects of the topic.
+Generate 12 NEW questions about "${topic}" that do NOT appear above in any form. Vary question types: include different subtopics, definitions, applications, and scenarios.
 
 ---
 
@@ -80,9 +80,11 @@ function isGeneratedQuestion(obj: unknown): obj is GeneratedQuestion {
     );
 }
 
+const QUESTIONS_REQUIRED = 5;
+
 function validateAndNormalizeQuestions(raw: unknown): GeneratedQuestion[] {
-    if (!Array.isArray(raw) || raw.length !== 5) {
-        throw new Error('Invalid response from question generator: expected exactly 5 questions');
+    if (!Array.isArray(raw) || raw.length < QUESTIONS_REQUIRED) {
+        throw new Error(`Invalid response from question generator: expected at least ${QUESTIONS_REQUIRED} questions, got ${Array.isArray(raw) ? raw.length : 0}`);
     }
     const questions: GeneratedQuestion[] = [];
     for (let i = 0; i < raw.length; i++) {
@@ -131,23 +133,18 @@ function calculateSimilarity(str1: string, str2: string): number {
     return union > 0 ? overlap / union : 0;
 }
 
-// Filter out questions that are too similar to excluded ones
+// Filter out only exact duplicates (normalized text matches an excluded question)
 function filterDuplicateQuestions(
     questions: GeneratedQuestion[],
-    excludeQuestions: string[],
-    similarityThreshold: number = 0.7
+    excludeQuestions: string[]
 ): GeneratedQuestion[] {
-    const normalizedExclusions = excludeQuestions.map(q => normalizeForComparison(q));
+    const normalizedExclusions = new Set(excludeQuestions.map(q => normalizeForComparison(q)));
 
     return questions.filter(q => {
         const normalizedQ = normalizeForComparison(q.question);
-
-        for (const excluded of normalizedExclusions) {
-            const similarity = calculateSimilarity(normalizedQ, excluded);
-            if (similarity >= similarityThreshold) {
-                console.log(`[OpenRouter] Filtering duplicate question (${Math.round(similarity * 100)}% similar): "${q.question.substring(0, 50)}..."`);
-                return false;
-            }
+        if (normalizedExclusions.has(normalizedQ)) {
+            console.log(`[OpenRouter] Filtering exact duplicate: "${q.question.substring(0, 50)}..."`);
+            return false;
         }
         return true;
     });
@@ -245,20 +242,28 @@ export async function generateQuizQuestions(
     const resultTopic = typeof obj.topic === 'string' ? obj.topic : topic;
     const resultDifficulty = typeof obj.difficulty === 'string' ? obj.difficulty : difficulty;
 
-    // Post-generation filter: remove any questions that are too similar to excluded ones
+    // Post-generation filter: remove exact duplicates of excluded questions
     if (excludeQuestions && excludeQuestions.length > 0) {
-        const originalCount = questions.length;
+        const beforeFilter = questions;
         questions = filterDuplicateQuestions(questions, excludeQuestions);
 
-        if (questions.length < originalCount) {
-            console.log(`[OpenRouter] Filtered ${originalCount - questions.length} duplicate questions, ${questions.length} remaining`);
+        if (questions.length < beforeFilter.length) {
+            console.log(`[OpenRouter] Filtered ${beforeFilter.length - questions.length} duplicate questions, ${questions.length} remaining`);
         }
 
-        // Require at least 5 questions after filtering so the quiz is valid
-        if (questions.length < 5) {
-            console.warn(`[OpenRouter] Only ${questions.length} unique questions after filtering; need 5.`);
-            throw new Error("Couldn't generate enough questions for this topic.");
+        // Fallback: if filtering removed everything, use first N from the unfiltered list so the user still gets a quiz
+        if (questions.length < QUESTIONS_REQUIRED) {
+            console.warn(`[OpenRouter] Only ${questions.length} unique after filter; using first ${QUESTIONS_REQUIRED} from generated list (may include repeats).`);
+            questions = beforeFilter.slice(0, QUESTIONS_REQUIRED);
         }
+    }
+
+    // Take only the number we need for the quiz
+    questions = questions.slice(0, QUESTIONS_REQUIRED);
+
+    if (questions.length < QUESTIONS_REQUIRED) {
+        console.warn(`[OpenRouter] Only ${questions.length} questions available; need ${QUESTIONS_REQUIRED}.`);
+        throw new Error("Couldn't generate enough questions for this topic.");
     }
 
     return {
