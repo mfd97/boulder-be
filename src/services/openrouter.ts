@@ -10,6 +10,7 @@ const FALLBACK_MODELS = [
     'mistralai/mistral-7b-instruct:free',
     'qwen/qwen-2-7b-instruct:free',
     'tngtech/deepseek-r1t-chimera:free',
+    'arcee-ai/trinity-large-preview:free'
 ];
 
 export interface GeneratedQuestion {
@@ -253,9 +254,10 @@ export async function generateQuizQuestions(
             console.log(`[OpenRouter] Filtered ${originalCount - questions.length} duplicate questions, ${questions.length} remaining`);
         }
 
-        // If too many questions were filtered, log a warning
-        if (questions.length < 3) {
-            console.warn(`[OpenRouter] Warning: Only ${questions.length} unique questions generated. Consider expanding the topic or reducing exclusions.`);
+        // Require at least 5 questions after filtering so the quiz is valid
+        if (questions.length < 5) {
+            console.warn(`[OpenRouter] Only ${questions.length} unique questions after filtering; need 5.`);
+            throw new Error("Couldn't generate enough questions for this topic.");
         }
     }
 

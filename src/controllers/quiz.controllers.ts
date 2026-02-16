@@ -150,6 +150,11 @@ export const createQuiz = async (req: Request, res: Response) => {
         // Generate new questions, passing the exclusion list
         const { questions } = await generateQuizQuestions(topic.trim(), difficulty, excludeQuestions);
 
+        if (!questions || questions.length < 5) {
+            res.status(400).json({ success: false, message: "Couldn't generate enough questions for this topic." });
+            return;
+        }
+
         const quiz = await StartNewQuiz.create({
             userId,
             topic: topic.trim(),
